@@ -175,7 +175,11 @@ mod test {
         fn trivial() { }
 
          #[test]
-        fn trivial_with_return() -> Result<(), &'static str> { Ok(()) }
+        fn trivial_with_ok() -> Result<(), &'static str> { Ok(()) }
+
+        #[test]
+        #[should_panic]
+        fn trivial_with_err() -> Result<(), &'static str> { Err("should fail.") }
 
         #[test]
         #[should_panic]
