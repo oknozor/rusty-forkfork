@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::fmt::Debug;
 use std::fs;
 use std::env;
 use std::hash::{Hash, Hasher};
@@ -23,6 +24,35 @@ use crate::child_wrapper::ChildWrapper;
 
 const OCCURS_ENV: &str = "RUSTY_FORK_OCCURS";
 const OCCURS_TERM_LENGTH: usize = 17; /* ':' plus 16 hexits */
+
+pub trait TestExitStatus<E: Debug> {
+    fn status(self) -> std::result::Result<(), E>;     
+}
+
+impl <T, E: Debug> TestExitStatus<E> for std::result::Result<T, E> {
+    fn status(self) -> std::result::Result<(), E> {
+        match self {
+            Ok(_) => Ok(()),
+            Err(err) => Err(err)
+        }
+    }
+}
+
+impl <T> TestExitStatus<()> for Option<T> {
+    fn status(self) -> std::result::Result<(), ()> {
+        match self {
+            Some(_) => Ok(()),
+            None => Err(())
+        }
+    }
+}
+
+impl TestExitStatus<()> for () {
+    fn status(self) -> std::result::Result<(), ()> {
+        Ok(())
+    }
+}
+
 
 /// Simulate a process fork.
 ///
@@ -79,7 +109,7 @@ const OCCURS_TERM_LENGTH: usize = 17; /* ':' plus 16 hexits */
 /// executable.
 ///
 /// Panics if any argument to the current process is not valid UTF-8.
-pub fn fork<ID, MODIFIER, PARENT, CHILD, R, T>(
+pub fn fork<ID, MODIFIER, PARENT, CHILD, R, T, E: Debug>(
     test_name: &str,
     fork_id: ID,
     process_modifier: MODIFIER,
@@ -89,6 +119,7 @@ where
     ID : Hash,
     MODIFIER : FnOnce (&mut process::Command),
     PARENT : FnOnce (&mut ChildWrapper, &mut fs::File) -> R,
+    T : TestExitStatus<E>,
     CHILD : FnOnce () -> T
 {
     let fork_id = id_str(fork_id);
@@ -108,14 +139,20 @@ where
         .map(|_| return_value.unwrap())
 }
 
-fn fork_impl<T>(test_name: &str, fork_id: String,
+fn fork_impl<E: Debug, T: TestExitStatus<E>>(test_name: &str, fork_id: String,
              process_modifier: &mut dyn FnMut (&mut process::Command),
              in_parent: &mut dyn FnMut (&mut ChildWrapper, &mut fs::File),
              in_child: &mut dyn FnMut () -> T) -> Result<()> {
     let mut occurs = env::var(OCCURS_ENV).unwrap_or_else(|_| String::new());
     if occurs.contains(&fork_id) {
         match panic::catch_unwind(panic::AssertUnwindSafe(in_child)) {
-            Ok(_) => process::exit(0),
+            Ok(test_result) => match test_result.status() {
+                Ok(_) => process::exit(0),
+                Err(err) => {
+                    eprintln!("Test failure cause by: {:?}", err);
+                    process::exit(70 /* EX_SOFTWARE */)
+                }
+            },
             // Assume that the default panic handler already printed something
             //
             // We don't use process::abort() since it produces core dumps on
