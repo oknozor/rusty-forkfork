@@ -22,7 +22,7 @@ use crate::child_wrapper::ChildWrapper;
 /// functions.
 ///
 /// ```
-/// use rusty_fork::rusty_fork_test;
+/// use rusty_forkfork::rusty_fork_test;
 ///
 /// rusty_fork_test! {
 /// # /*
@@ -45,7 +45,7 @@ use crate::child_wrapper::ChildWrapper;
 /// the block, like so:
 ///
 /// ```
-/// use rusty_fork::rusty_fork_test;
+/// use rusty_forkfork::rusty_fork_test;
 ///
 /// rusty_fork_test! {
 ///     #![rusty_fork(timeout_ms = 1000)]
