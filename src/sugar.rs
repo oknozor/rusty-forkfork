@@ -16,10 +16,12 @@
 /// The type of the expression this macro expands to is
 /// [`RustyForkId`](struct.RustyForkId.html).
 #[macro_export]
-macro_rules! rusty_fork_id { () => { {
-    struct _RustyForkId;
-    $crate::RustyForkId::of(::std::any::TypeId::of::<_RustyForkId>())
-} } }
+macro_rules! rusty_fork_id {
+    () => {{
+        struct _RustyForkId;
+        $crate::RustyForkId::of(::std::any::TypeId::of::<_RustyForkId>())
+    }};
+}
 
 /// The type of the value produced by
 /// [`rusty_fork_id!`](macro.rusty_fork_id.html).

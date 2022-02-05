@@ -120,9 +120,12 @@ macro_rules! rusty_fork_test {
 #[macro_export]
 macro_rules! rusty_fork_test_name {
     ($function_name:ident) => {
-        $crate::fork_test::fix_module_path(
-            concat!(module_path!(), "::", stringify!($function_name)))
-    }
+        $crate::fork_test::fix_module_path(concat!(
+            module_path!(),
+            "::",
+            stringify!($function_name)
+        ))
+    };
 }
 
 #[allow(missing_docs)]
@@ -132,20 +135,23 @@ pub fn supervise_child(child: &mut ChildWrapper, timeout_ms: u64) {
         wait_timeout(child, timeout_ms)
     } else {
         let status = child.wait().expect("failed to wait for child");
-        assert!(status.success(),
-                "child exited unsuccessfully with {}", status);
+        assert!(
+            status.success(),
+            "child exited unsuccessfully with {}",
+            status
+        );
     }
 }
 
 #[allow(missing_docs)]
 #[doc(hidden)]
-pub fn no_configure_child(_child: &mut Command) { }
+pub fn no_configure_child(_child: &mut Command) {}
 
 /// Transform a string representing a qualified path as generated via
 /// `module_path!()` into a qualified path as expected by the standard Rust
 /// test harness.
 pub fn fix_module_path(path: &str) -> &str {
-    path.find("::").map(|ix| &path[ix+2..]).unwrap_or(path)
+    path.find("::").map(|ix| &path[ix + 2..]).unwrap_or(path)
 }
 
 #[cfg(feature = "timeout")]
@@ -153,10 +159,15 @@ fn wait_timeout(child: &mut ChildWrapper, timeout_ms: u64) {
     use std::time::Duration;
 
     let timeout = Duration::from_millis(timeout_ms);
-    let status = child.wait_timeout(timeout).expect("failed to wait for child");
+    let status = child
+        .wait_timeout(timeout)
+        .expect("failed to wait for child");
     if let Some(status) = status {
-        assert!(status.success(),
-                "child exited unsuccessfully with {}", status);
+        assert!(
+            status.success(),
+            "child exited unsuccessfully with {}",
+            status
+        );
     } else {
         panic!("child process exceeded {} ms timeout", timeout_ms);
     }
@@ -164,8 +175,10 @@ fn wait_timeout(child: &mut ChildWrapper, timeout_ms: u64) {
 
 #[cfg(not(feature = "timeout"))]
 fn wait_timeout(_: &mut ChildWrapper, _: u64) {
-    panic!("Using the timeout feature of rusty_fork_test! requires \
-            enabling the `timeout` feature on the rusty-fork crate.");
+    panic!(
+        "Using the timeout feature of rusty_fork_test! requires \
+            enabling the `timeout` feature on the rusty-fork crate."
+    );
 }
 
 #[cfg(test)]

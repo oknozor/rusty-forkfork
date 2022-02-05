@@ -7,42 +7,39 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::env;
 use std::fmt::Debug;
 use std::fs;
-use std::env;
 use std::hash::{Hash, Hasher};
 use std::io::{self, BufRead, Seek};
 use std::panic;
 use std::process;
 
-use fnv;
-use tempfile;
-
+use crate::child_wrapper::ChildWrapper;
 use crate::cmdline;
 use crate::error::*;
-use crate::child_wrapper::ChildWrapper;
 
 const OCCURS_ENV: &str = "RUSTY_FORK_OCCURS";
 const OCCURS_TERM_LENGTH: usize = 17; /* ':' plus 16 hexits */
 
 pub trait TestExitStatus<E: Debug> {
-    fn status(self) -> std::result::Result<(), E>;     
+    fn status(self) -> std::result::Result<(), E>;
 }
 
-impl <T, E: Debug> TestExitStatus<E> for std::result::Result<T, E> {
+impl<T, E: Debug> TestExitStatus<E> for std::result::Result<T, E> {
     fn status(self) -> std::result::Result<(), E> {
         match self {
             Ok(_) => Ok(()),
-            Err(err) => Err(err)
+            Err(err) => Err(err),
         }
     }
 }
 
-impl <T> TestExitStatus<()> for Option<T> {
+impl<T> TestExitStatus<()> for Option<T> {
     fn status(self) -> std::result::Result<(), ()> {
         match self {
             Some(_) => Ok(()),
-            None => Err(())
+            None => Err(()),
         }
     }
 }
@@ -52,7 +49,6 @@ impl TestExitStatus<()> for () {
         Ok(())
     }
 }
-
 
 /// Simulate a process fork.
 ///
@@ -114,13 +110,14 @@ pub fn fork<ID, MODIFIER, PARENT, CHILD, R, T, E: Debug>(
     fork_id: ID,
     process_modifier: MODIFIER,
     in_parent: PARENT,
-    in_child: CHILD) -> Result<R>
+    in_child: CHILD,
+) -> Result<R>
 where
-    ID : Hash,
-    MODIFIER : FnOnce (&mut process::Command),
-    PARENT : FnOnce (&mut ChildWrapper, &mut fs::File) -> R,
-    T : TestExitStatus<E>,
-    CHILD : FnOnce () -> T
+    ID: Hash,
+    MODIFIER: FnOnce(&mut process::Command),
+    PARENT: FnOnce(&mut ChildWrapper, &mut fs::File) -> R,
+    T: TestExitStatus<E>,
+    CHILD: FnOnce() -> T,
 {
     let fork_id = id_str(fork_id);
 
@@ -131,18 +128,23 @@ where
     let mut in_parent = Some(in_parent);
     let mut in_child = Some(in_child);
 
-    fork_impl(test_name, fork_id,
-              &mut |cmd| process_modifier.take().unwrap()(cmd),
-              &mut |child, file| return_value = Some(
-                  in_parent.take().unwrap()(child, file)),
-              &mut || in_child.take().unwrap()())
-        .map(|_| return_value.unwrap())
+    fork_impl(
+        test_name,
+        fork_id,
+        &mut |cmd| process_modifier.take().unwrap()(cmd),
+        &mut |child, file| return_value = Some(in_parent.take().unwrap()(child, file)),
+        &mut || in_child.take().unwrap()(),
+    )
+    .map(|_| return_value.unwrap())
 }
 
-fn fork_impl<E: Debug, T: TestExitStatus<E>>(test_name: &str, fork_id: String,
-             process_modifier: &mut dyn FnMut (&mut process::Command),
-             in_parent: &mut dyn FnMut (&mut ChildWrapper, &mut fs::File),
-             in_child: &mut dyn FnMut () -> T) -> Result<()> {
+fn fork_impl<E: Debug, T: TestExitStatus<E>>(
+    test_name: &str,
+    fork_id: String,
+    process_modifier: &mut dyn FnMut(&mut process::Command),
+    in_parent: &mut dyn FnMut(&mut ChildWrapper, &mut fs::File),
+    in_child: &mut dyn FnMut() -> T,
+) -> Result<()> {
     let mut occurs = env::var(OCCURS_ENV).unwrap_or_else(|_| String::new());
     if occurs.contains(&fork_id) {
         match panic::catch_unwind(panic::AssertUnwindSafe(in_child)) {
@@ -206,9 +208,7 @@ fn fork_impl<E: Debug, T: TestExitStatus<E>>(test_name: &str, fork_id: String,
 
         occurs.push_str(&fork_id);
         let mut command =
-            process::Command::new(
-                env::current_exe()
-                    .expect("current_exe() failed, cannot fork"));
+            process::Command::new(env::current_exe().expect("current_exe() failed, cannot fork"));
         command
             .args(cmdline::strip_cmdline(env::args())?)
             .args(cmdline::RUN_TEST_ARGS)
@@ -219,7 +219,9 @@ fn fork_impl<E: Debug, T: TestExitStatus<E>>(test_name: &str, fork_id: String,
             .stderr(file.try_clone()?);
         process_modifier(&mut command);
 
-        let mut child = command.spawn().map(ChildWrapper::new)
+        let mut child = command
+            .spawn()
+            .map(ChildWrapper::new)
             .map(|p| KillOnDrop(p, file))?;
 
         let ret = in_parent(&mut child.0, &mut child.1);
@@ -228,7 +230,7 @@ fn fork_impl<E: Debug, T: TestExitStatus<E>>(test_name: &str, fork_id: String,
     }
 }
 
-fn id_str<ID : Hash>(id: ID) -> String {
+fn id_str<ID: Hash>(id: ID) -> String {
     let mut hasher = fnv::FnvHasher::default();
     id.hash(&mut hasher);
 
@@ -258,27 +260,33 @@ mod test {
             .stderr(process::Stdio::inherit());
     }
 
-    fn wait_for_child_output(child: &mut ChildWrapper,
-                             _file: &mut fs::File) -> String {
+    fn wait_for_child_output(child: &mut ChildWrapper, _file: &mut fs::File) -> String {
         let mut output = String::new();
-        child.inner_mut().stdout.as_mut().unwrap()
-            .read_to_string(&mut output).unwrap();
+        child
+            .inner_mut()
+            .stdout
+            .as_mut()
+            .unwrap()
+            .read_to_string(&mut output)
+            .unwrap();
         assert!(child.wait().unwrap().success());
         output
     }
 
-    fn wait_for_child(child: &mut ChildWrapper,
-                      _file: &mut fs::File) {
+    fn wait_for_child(child: &mut ChildWrapper, _file: &mut fs::File) {
         assert!(child.wait().unwrap().success());
     }
 
     #[test]
     fn fork_basically_works() {
-        let status =
-            fork("fork::test::fork_basically_works", rusty_fork_id!(),
-                 |_| (),
-                 |child, _| child.wait().unwrap(),
-                 || println!("hello from child")).unwrap();
+        let status = fork(
+            "fork::test::fork_basically_works",
+            rusty_fork_id!(),
+            |_| (),
+            |child, _| child.wait().unwrap(),
+            || println!("hello from child"),
+        )
+        .unwrap();
         assert!(status.success());
     }
 
@@ -287,13 +295,20 @@ mod test {
         let output = fork(
             "fork::test::child_output_captured_and_repeated",
             rusty_fork_id!(),
-            capturing_output, wait_for_child_output,
-            || fork(
-                "fork::test::child_output_captured_and_repeated",
-                rusty_fork_id!(),
-                |_| (), wait_for_child,
-                || println!("hello from child")).unwrap())
-            .unwrap();
+            capturing_output,
+            wait_for_child_output,
+            || {
+                fork(
+                    "fork::test::child_output_captured_and_repeated",
+                    rusty_fork_id!(),
+                    |_| (),
+                    wait_for_child,
+                    || println!("hello from child"),
+                )
+                .unwrap()
+            },
+        )
+        .unwrap();
         assert!(output.contains("hello from child"));
     }
 
@@ -302,19 +317,30 @@ mod test {
         let output = fork(
             "fork::test::child_killed_if_parent_exits_first",
             rusty_fork_id!(),
-            capturing_output, wait_for_child_output,
-            || fork(
-                "fork::test::child_killed_if_parent_exits_first",
-                rusty_fork_id!(),
-                inherit_output, |_, _| (),
-                || {
-                    sleep(1_000);
-                    println!("hello from child");
-                }).unwrap()).unwrap();
+            capturing_output,
+            wait_for_child_output,
+            || {
+                fork(
+                    "fork::test::child_killed_if_parent_exits_first",
+                    rusty_fork_id!(),
+                    inherit_output,
+                    |_, _| (),
+                    || {
+                        sleep(1_000);
+                        println!("hello from child");
+                    },
+                )
+                .unwrap()
+            },
+        )
+        .unwrap();
 
         sleep(2_000);
-        assert!(!output.contains("hello from child"),
-                "Had unexpected output:\n{}", output);
+        assert!(
+            !output.contains("hello from child"),
+            "Had unexpected output:\n{}",
+            output
+        );
     }
 
     #[test]
@@ -322,23 +348,31 @@ mod test {
         let output = fork(
             "fork::test::child_killed_if_parent_panics_first",
             rusty_fork_id!(),
-            capturing_output, wait_for_child_output,
+            capturing_output,
+            wait_for_child_output,
             || {
-                assert!(
-                    panic::catch_unwind(panic::AssertUnwindSafe(|| fork(
-                        "fork::test::child_killed_if_parent_panics_first",
-                        rusty_fork_id!(),
-                        inherit_output,
-                        |_, _| panic!("testing a panic, nothing to see here"),
-                        || {
-                            sleep(1_000);
-                            println!("hello from child");
-                        }).unwrap())).is_err());
-            }).unwrap();
+                assert!(panic::catch_unwind(panic::AssertUnwindSafe(|| fork(
+                    "fork::test::child_killed_if_parent_panics_first",
+                    rusty_fork_id!(),
+                    inherit_output,
+                    |_, _| panic!("testing a panic, nothing to see here"),
+                    || {
+                        sleep(1_000);
+                        println!("hello from child");
+                    }
+                )
+                .unwrap()))
+                .is_err());
+            },
+        )
+        .unwrap();
 
         sleep(2_000);
-        assert!(!output.contains("hello from child"),
-                "Had unexpected output:\n{}", output);
+        assert!(
+            !output.contains("hello from child"),
+            "Had unexpected output:\n{}",
+            output
+        );
     }
 
     #[test]
@@ -348,7 +382,9 @@ mod test {
             rusty_fork_id!(),
             |_| (),
             |child, _| child.wait().unwrap(),
-            || panic!("testing a panic, nothing to see here")).unwrap();
+            || panic!("testing a panic, nothing to see here"),
+        )
+        .unwrap();
         assert_eq!(70, status.code().unwrap());
     }
 }

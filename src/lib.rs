@@ -113,16 +113,19 @@
 //!
 //! <!-- ENDREADME -->
 
-#[macro_use] extern crate quick_error;
+#[macro_use]
+extern crate quick_error;
 
-#[macro_use] mod sugar;
-#[macro_use] pub mod fork_test;
-mod error;
-mod cmdline;
-mod fork;
+#[macro_use]
+mod sugar;
+#[macro_use]
+pub mod fork_test;
 mod child_wrapper;
+mod cmdline;
+mod error;
+mod fork;
 
-pub use crate::sugar::RustyForkId;
+pub use crate::child_wrapper::{ChildWrapper, ExitStatusWrapper};
 pub use crate::error::{Error, Result};
 pub use crate::fork::fork;
-pub use crate::child_wrapper::{ChildWrapper, ExitStatusWrapper};
+pub use crate::sugar::RustyForkId;
