@@ -1,4 +1,17 @@
 - - -
+## [0.4.0](https://github.com/oknozor/rusty-forkfork/compare/0.3.0..0.4.0) - 2022-02-05
+#### Bug Fixes
+- handle return of Err from forked test function - ([2e06752](https://github.com/oknozor/rusty-forkfork/commit/2e067521c80fa85d562d03ccbcb2224a51508698)) - [@Zshoham](https://github.com/Zshoham)
+#### Continuous Integration
+- migrate CI to github action and add cocogitto - ([5be13ad](https://github.com/oknozor/rusty-forkfork/commit/5be13ad232f63525d758f911b5668adbc1b4ae3e)) - [@oknozor](https://github.com/oknozor)
+#### Features
+- Add optional return type to rusty_test functions - ([a31edbe](https://github.com/oknozor/rusty-forkfork/commit/a31edbea4c5a7426c7f97a15b964850505b1254a)) - [@oknozor](https://github.com/oknozor)
+#### Miscellaneous Chores
+- rename crate to rusty_forkfork - ([9ffe50d](https://github.com/oknozor/rusty-forkfork/commit/9ffe50dd927636d033ebd50e96d536fe995ed171)) - [@oknozor](https://github.com/oknozor)
+- add cocogitto changelog separator - ([b62f777](https://github.com/oknozor/rusty-forkfork/commit/b62f7771e8dcbce49cb3f87a45f314dc955b068e)) - [@oknozor](https://github.com/oknozor)
+- fix lints and format - ([f9c3a36](https://github.com/oknozor/rusty-forkfork/commit/f9c3a3622a17e98d5606b7a67ca1eeebc3d5b30e)) - [@oknozor](https://github.com/oknozor)
+- - -
+
 ## 0.3.0
 
 ### Breaking Changes
