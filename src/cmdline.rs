@@ -40,10 +40,16 @@ static KNOWN_FLAGS: &[(&str, FlagType)] = &[
     ("--exclude-should-panic", FlagType::Pass(false)),
     ("--force-run-in-process", FlagType::Pass(false)),
     ("--format", FlagType::Drop(true)),
-    ("--help", FlagType::Error("Tests run but --help passed to process?")),
+    (
+        "--help",
+        FlagType::Error("Tests run but --help passed to process?"),
+    ),
     ("--ignored", FlagType::Pass(false)),
     ("--include-ignored", FlagType::Pass(false)),
-    ("--list", FlagType::Error("Tests run but --list passed to process?")),
+    (
+        "--list",
+        FlagType::Error("Tests run but --list passed to process?"),
+    ),
     ("--logfile", FlagType::Drop(true)),
     ("--nocapture", FlagType::Drop(true)),
     ("--quiet", FlagType::Drop(false)),
@@ -58,27 +64,38 @@ static KNOWN_FLAGS: &[(&str, FlagType)] = &[
 ];
 
 fn look_up_flag_from_table(flag: &str) -> Option<FlagType> {
-    KNOWN_FLAGS.iter().cloned().filter(|&(name, _)| name == flag)
-        .map(|(_, typ)| typ).next()
+    KNOWN_FLAGS
+        .iter()
+        .cloned()
+        .filter(|&(name, _)| name == flag)
+        .map(|(_, typ)| typ)
+        .next()
 }
 
 pub(crate) fn env_var_for_flag(flag: &str) -> String {
     let mut var = "RUSTY_FORK_FLAG_".to_owned();
     var.push_str(
-        &flag.trim_start_matches('-').to_uppercase().replace('-', "_"));
+        &flag
+            .trim_start_matches('-')
+            .to_uppercase()
+            .replace('-', "_"),
+    );
     var
 }
 
 fn look_up_flag_from_env(flag: &str) -> Option<FlagType> {
-    env::var(&env_var_for_flag(flag)).ok().map(
-        |value| match &*value {
+    env::var(&env_var_for_flag(flag))
+        .ok()
+        .map(|value| match &*value {
             "pass" => FlagType::Pass(false),
             "pass-arg" => FlagType::Pass(true),
             "drop" => FlagType::Drop(false),
             "drop-arg" => FlagType::Drop(true),
-            _ => FlagType::Error("incorrect flag type in environment; \
+            _ => FlagType::Error(
+                "incorrect flag type in environment; \
                                   must be one of `pass`, `pass-arg`, \
-                                  `drop`, `drop-arg`"),
+                                  `drop`, `drop-arg`",
+            ),
         })
 }
 
@@ -88,10 +105,10 @@ fn look_up_flag(flag: &str) -> Option<FlagType> {
 
 fn look_up_flag_or_err(flag: &str) -> Result<(bool, bool)> {
     match look_up_flag(flag) {
-        None =>
-            Err(Error::UnknownFlag(flag.to_owned())),
-        Some(FlagType::Error(message)) =>
-            Err(Error::DisallowedFlag(flag.to_owned(), message.to_owned())),
+        None => Err(Error::UnknownFlag(flag.to_owned())),
+        Some(FlagType::Error(message)) => {
+            Err(Error::DisallowedFlag(flag.to_owned(), message.to_owned()))
+        }
         Some(FlagType::Pass(has_arg)) => Ok((true, has_arg)),
         Some(FlagType::Drop(has_arg)) => Ok((false, has_arg)),
     }
@@ -103,12 +120,12 @@ fn look_up_flag_or_err(flag: &str) -> Result<(bool, bool)> {
 /// flags can be appended.
 ///
 /// The zeroth argument (the command name) is also dropped.
-pub(crate) fn strip_cmdline<A : Iterator<Item = String>>
-    (args: A) -> Result<Vec<String>>
-{
+pub(crate) fn strip_cmdline<A: Iterator<Item = String>>(args: A) -> Result<Vec<String>> {
     #[derive(Clone, Copy)]
     enum State {
-        Ground, PassingArg, DroppingArg,
+        Ground,
+        PassingArg,
+        DroppingArg,
     }
 
     // Start in DroppingArg since we need to drop the exec name.
@@ -119,12 +136,12 @@ pub(crate) fn strip_cmdline<A : Iterator<Item = String>>
         match state {
             State::DroppingArg => {
                 state = State::Ground;
-            },
+            }
 
             State::PassingArg => {
                 ret.push(arg);
                 state = State::Ground;
-            },
+            }
 
             State::Ground => {
                 if &arg == "--" {
@@ -134,8 +151,8 @@ pub(crate) fn strip_cmdline<A : Iterator<Item = String>>
                     // "-" by itself is interpreted as a filter
                     continue;
                 } else if arg.starts_with("--") {
-                    let (pass, has_arg) = look_up_flag_or_err(
-                        arg.split('=').next().expect("split returned empty"))?;
+                    let (pass, has_arg) =
+                        look_up_flag_or_err(arg.split('=').next().expect("split returned empty"))?;
                     // If there's an = sign, the physical argument also
                     // contains the associated value, so don't pay attention to
                     // has_arg.
@@ -148,7 +165,7 @@ pub(crate) fn strip_cmdline<A : Iterator<Item = String>>
                     } else if has_arg {
                         state = State::DroppingArg;
                     }
-                } else if arg.starts_with("-") {
+                } else if arg.starts_with('-') {
                     let mut chars = arg.chars();
                     let mut to_pass = "-".to_owned();
 
@@ -183,7 +200,7 @@ pub(crate) fn strip_cmdline<A : Iterator<Item = String>>
                 } else {
                     // It's a filter, drop
                 }
-            },
+            }
         }
     }
 
@@ -196,7 +213,8 @@ pub(crate) static RUN_TEST_ARGS: &[&str] = &[
     // --quiet because the test runner output is redundant
     "--quiet",
     // Single threaded because we get parallelism from the parent process
-    "--test-threads", "1",
+    "--test-threads",
+    "1",
     // Disable capture since we want the output to be captured by the *parent*
     // process.
     "--nocapture",
@@ -211,8 +229,7 @@ mod test {
     use super::*;
 
     fn strip(cmdline: &str) -> Result<String> {
-        strip_cmdline(cmdline.split_whitespace().map(|s| s.to_owned()))
-            .map(|strs| strs.join(" "))
+        strip_cmdline(cmdline.split_whitespace().map(|s| s.to_owned())).map(|strs| strs.join(" "))
     }
 
     #[test]
@@ -223,12 +240,18 @@ mod test {
         assert_eq!("", &strip("test -q").unwrap());
         assert_eq!("", &strip("test -qq").unwrap());
         assert_eq!("", &strip("test --test-threads 42").unwrap());
-        assert_eq!("-Z unstable-options",
-                   &strip("test -Z unstable-options").unwrap());
-        assert_eq!("-Zunstable-options",
-                   &strip("test -Zunstable-options").unwrap());
-        assert_eq!("-Zunstable-options",
-                   &strip("test -qZunstable-options").unwrap());
+        assert_eq!(
+            "-Z unstable-options",
+            &strip("test -Z unstable-options").unwrap()
+        );
+        assert_eq!(
+            "-Zunstable-options",
+            &strip("test -Zunstable-options").unwrap()
+        );
+        assert_eq!(
+            "-Zunstable-options",
+            &strip("test -qZunstable-options").unwrap()
+        );
         assert_eq!("--color auto", &strip("test --color auto").unwrap());
         assert_eq!("--color=auto", &strip("test --color=auto").unwrap());
         assert_eq!("", &strip("test filter filter2").unwrap());

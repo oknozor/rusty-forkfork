@@ -36,7 +36,7 @@ quick_error! {
                      \tdrop - Don't pass the flag to the child process.\n\
                      \tdrop-arg - Don't pass the flag or its following \
                      argument to the child process.",
-                    flag, cmdline::env_var_for_flag(&flag))
+                    flag, cmdline::env_var_for_flag(flag))
         }
         /// A flag was encountered when examining the current process's
         /// argument list which is known but cannot be handled in any sensible

@@ -118,7 +118,10 @@ pub struct ChildWrapper {
 
 impl ChildWrapper {
     pub(crate) fn new(child: Child) -> Self {
-        ChildWrapper { child, exit_status: None }
+        ChildWrapper {
+            child,
+            exit_status: None,
+        }
     }
 
     /// Return a reference to the inner `std::process::Child`.
@@ -148,7 +151,10 @@ impl ChildWrapper {
         if self.exit_status.is_none() {
             self.child.kill()
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "Process already reaped"))
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Process already reaped",
+            ))
         }
     }
 
@@ -221,7 +227,9 @@ impl ChildWrapper {
     pub fn wait_with_output(self) -> io::Result<Output> {
         if self.exit_status.is_some() {
             return Err(io::Error::new(
-                io::ErrorKind::NotFound, "Process already reaped"));
+                io::ErrorKind::NotFound,
+                "Process already reaped",
+            ));
         }
 
         self.child.wait_with_output()
@@ -235,8 +243,7 @@ impl ChildWrapper {
     ///
     /// This is only present if the "timeout" feature is enabled.
     #[cfg(feature = "timeout")]
-    pub fn wait_timeout(&mut self, dur: Duration)
-                        -> io::Result<Option<ExitStatusWrapper>> {
+    pub fn wait_timeout(&mut self, dur: Duration) -> io::Result<Option<ExitStatusWrapper>> {
         if let Some(status) = self.exit_status {
             Ok(Some(status))
         } else {
