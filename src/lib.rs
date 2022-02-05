@@ -44,7 +44,7 @@
 //!
 //! ```toml
 //! [dev-dependencies]
-//! rusty-fork = "0.3.0"
+//! rusty-fork = "*"
 //! ```
 //!
 //! Then, you can simply wrap any test(s) to be isolated with the
